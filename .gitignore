@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+node_modules/
+dist/
+.env
+
+# 자동 생성되는 Prisma 클라이언트
+/prisma/generated
+/src/generated/prisma
+
+# Prisma AI agent skills 제외
+/.agents/

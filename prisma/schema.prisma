@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+// --- 열거형(Enums) ---
+enum TransactionType {
+  IN  // 자재 입고 (매입)
+  OUT // 자재 출고 (치과 납품)
+}
+
+enum Currency {
+  KRW // 원화 (국내)
+  USD // 달러 (해외)
+}
+
+// --- 1. 기공소 (Organization / 멀티 테넌트 SaaS 확장형) ---
+model Lab {
+  id        String   @id @default(cuid())
+  name      String   // 기공소명
+  country   String   @default("KR") // 국가 코드 (KR, US 등)
+  currency  Currency @default(KRW)  // 기본 사용 통화
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  clinics      Clinic[]
+  materials    Material[]
+  transactions InventoryTransaction[]
+}
+
+// --- 2. 사용자 (Supabase Auth 연동용) ---
+model User {
+  id        String   @id // Supabase Auth의 user.id (UUID) 그대로 저장
+  email     String   @unique
+  name      String?
+  role      String   @default("MEMBER") // ADMIN, MEMBER
+  labId     String
+  lab       Lab      @relation(fields: [labId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+// --- 3. 거래처 (치과 병원/의원) ---
+model Clinic {
+  id          String   @id @default(cuid())
+  labId       String
+  lab         Lab      @relation(fields: [labId], references: [id], onDelete: Cascade)
+  name        String   // 치과명 (예: 서울탑치과)
+  contactName String?  // 담당 원장/실장명
+  phone       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactions InventoryTransaction[]
+
+  @@index([labId])
+}
+
+// --- 4. 기공 자재 (바코드 스캔 대상 품목) ---
+model Material {
+  id           String   @id @default(cuid())
+  labId        String
+  lab          Lab      @relation(fields: [labId], references: [id], onDelete: Cascade)
+  barcode      String   // 바코드 / SKU (예: ZIR-A2-98)
+  name         String   // 국문 자재명 (예: 지르코니아 블록 A2)
+  nameEn       String?  // 영문 자재명 (해외 확장용)
+  category     String   // 보철, 임플란트, 세라믹, 디지털 등
+  stock        Int      @default(0)  // 현재 재고 수량
+  safeStock    Int      @default(10) // 안전재고 기준 수량
+  unitCostKRW  Int      @default(0)  // 매입 단가 (원)
+  unitCostUSD  Float    @default(0)  // 매입 단가 (달러)
+  imageUrl     String?  // Cloudflare R2 자재 이미지 URL
+  qrLabelUrl   String?  // Cloudflare R2 QR 라벨 PDF URL
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  transactions InventoryTransaction[]
+
+  // 한 기공소 내에서 바코드 번호 중복 방지
+  @@unique([labId, barcode])
+  @@index([labId, barcode])
+}
+
+// --- 5. 바코드 입·출고 및 원가 이력 ---
+model InventoryTransaction {
+  id          String          @id @default(cuid())
+  labId       String
+  lab         Lab             @relation(fields: [labId], references: [id], onDelete: Cascade)
+  type        TransactionType // IN 또는 OUT
+  quantity    Int             @default(1) // 변동 수량 (기본 1개씩 스캔)
+  
+  // 스캔 시점의 단가 스냅샷 (추후 자재 단가가 바뀌어도 과거 원가 통계 보존)
+  unitCostKRW Int
+  unitCostUSD Float
+
+  materialId  String
+  material    Material        @relation(fields: [materialId], references: [id], onDelete: Restrict)
+
+  clinicId    String?         // 출고(OUT)일 때 치과 연결, 입고(IN)일 때는 null
+  clinic      Clinic?         @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+
+  memo        String?
+  createdAt   DateTime        @default(now())
+
+  // 최근 7일 출고 빈도 TOP 치과 및 월별 원가 차트 빠른 조회를 위한 복합 인덱스
+  @@index([labId, type, createdAt])
+  @@index([labId, clinicId, createdAt])
+}
