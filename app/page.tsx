@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { CheckCircle2, AlertCircle, History, Loader2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, History, Loader2, RotateCcw } from "lucide-react";
 import Header from "@/components/Header";
 import BarcodeScannerBox from "@/components/BarcodeScannerBox";
 import AnalyticsSection from "@/components/AnalyticsSection";
@@ -122,6 +122,64 @@ export default function DentalLabDashboard() {
       setIsLoading(false);
     }
   }, [lang]);
+
+  const [cancellingLogId, setCancellingLogId] = useState<string | null>(null);
+
+  const handleCancelTransaction = async (log: ScanLog) => {
+    if (cancellingLogId) return;
+
+    const actionLabel = log.type === "OUT" ? "출고" : "입고";
+    const confirmMsg =
+      lang === "ko"
+        ? `[${actionLabel}] ${log.itemName} (${log.barcode}) 내역을 취소하시겠습니까?\n재고 수량이 자동으로 복구됩니다.`
+        : `Cancel [${log.type}] ${log.itemName} (${log.barcode})?\nStock quantity will be restored.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setCancellingLogId(log.id);
+    try {
+      const res = await fetch(`/api/scan/${log.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "취소 처리에 실패했습니다.");
+      }
+
+      // 1. 로그 목록에서 즉시 제거
+      setScanLogs((prev) => prev.filter((item) => item.id !== log.id));
+
+      // 2. 현재 재고(inventory) 수량 즉시 동기화
+      if (data.material) {
+        setInventory((prev) => {
+          if (!prev[log.barcode]) return prev;
+          return {
+            ...prev,
+            [log.barcode]: {
+              ...prev[log.barcode],
+              stock: data.material.stock,
+            },
+          };
+        });
+      }
+
+      setToast({
+        type: "success",
+        message:
+          lang === "ko"
+            ? `${actionLabel}가 취소되고 재고가 복구되었습니다.`
+            : "Transaction cancelled and stock restored.",
+      });
+    } catch (err: any) {
+      setToast({
+        type: "error",
+        message: err.message || "취소 처리 중 오류가 발생했습니다.",
+      });
+    } finally {
+      setCancellingLogId(null);
+    }
+  };
 
   useEffect(() => {
     fetchDashboardData();
@@ -244,18 +302,18 @@ export default function DentalLabDashboard() {
   };
 
   const handleClinicSaved = (savedClinic: Clinic, isEdit: boolean) => {
-    if(isEdit) {
-      setClinics((prev) => 
-        prev.map((c)=> (c.id === savedClinic.id ? savedClinic : c))
+    if (isEdit) {
+      setClinics((prev) =>
+        prev.map((c) => (c.id === savedClinic.id ? savedClinic : c))
       );
       setToast({
-      type: "success",
-      message: `✅ 거래처 정보가 수정되었습니다.`,
-    });
+        type: "success",
+        message: `✅ 거래처 정보가 수정되었습니다.`,
+      });
     } else {
       setClinics((prev) => [...prev, savedClinic]);
       setSelectedClinicId(savedClinic.id);
-      setToast({ 
+      setToast({
         type: "success",
         message: `✅ 새 거래처가 등록되었습니다.`,
       });
@@ -266,9 +324,9 @@ export default function DentalLabDashboard() {
     try {
       // TODO: DB 삭제 API 호출
       setClinics((prev) => prev.filter((c) => c.id !== clinicId));
-      
+
       //현재 선택된 거래처가 삭제된 경우 선택 초기화
-      if(selectedClinicId === clinicId) {
+      if (selectedClinicId === clinicId) {
         setSelectedClinicId("");
       }
       setToast({
@@ -324,17 +382,17 @@ export default function DentalLabDashboard() {
         }
         onSuccess={handleMaterialRegistered}
         onDeleteSuccess={(deletedId) => {
-        setInventory((prev) => {
-          const next = { ...prev };
-          const targetKey = Object.keys(next).find((k) => next[k].id === deletedId);
-          if (targetKey) delete next[targetKey];
-          return next;
-        });
-        setToast({
-          type: "success",
-          message: "등록된 바코드가 삭제되었습니다.",
-        });
-      }}
+          setInventory((prev) => {
+            const next = { ...prev };
+            const targetKey = Object.keys(next).find((k) => next[k].id === deletedId);
+            if (targetKey) delete next[targetKey];
+            return next;
+          });
+          setToast({
+            type: "success",
+            message: "등록된 바코드가 삭제되었습니다.",
+          });
+        }}
       />
 
       <ClinicRegisterModal
@@ -349,9 +407,8 @@ export default function DentalLabDashboard() {
       <main className="mx-auto max-w-7xl space-y-4 p-4 sm:space-y-6 sm:p-6">
         {toast && (
           <div
-            className={`fixed right-4 bottom-4 left-4 z-40 flex items-center gap-2 rounded-xl px-4 py-3.5 text-sm font-medium text-white shadow-xl transition-all sm:static sm:rounded-lg sm:py-3 sm:shadow-md ${
-              toast.type === "error" ? "bg-rose-600" : "bg-slate-900"
-            }`}
+            className={`fixed right-4 bottom-4 left-4 z-40 flex items-center gap-2 rounded-xl px-4 py-3.5 text-sm font-medium text-white shadow-xl transition-all sm:static sm:rounded-lg sm:py-3 sm:shadow-md ${toast.type === "error" ? "bg-rose-600" : "bg-slate-900"
+              }`}
           >
             {toast.type === "error" ? (
               <AlertCircle className="h-4 w-4 shrink-0 text-rose-200" />
@@ -427,15 +484,15 @@ export default function DentalLabDashboard() {
                 });
               }}
             />
-            
+
             {/*
             <AnalyticsSection
               lang={lang}
               inventory={inventory}
               monthlyData={MONTHLY_CHART_DATA}
             />
-            */} 
-            
+            */}
+
             {/* 실시간 입·출고 내역 */}
             <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs sm:p-6">
               <div className="mb-4 flex items-center justify-between">
@@ -481,9 +538,24 @@ export default function DentalLabDashboard() {
                               {log.barcode}
                             </span>
                           </div>
-                          <span className="font-mono text-[11px] text-slate-400">
-                            {log.time}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[11px] text-slate-400">
+                              {log.time}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCancelTransaction(log)}
+                              disabled={cancellingLogId === log.id}
+                              className="inline-flex items-center gap-1 rounded border border-rose-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                            >
+                              {cancellingLogId === log.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <RotateCcw className="h-3 w-3" />
+                              )}
+                              <span>{lang === "ko" ? "취소" : "Undo"}</span>
+                            </button>
+                          </div>
                         </div>
 
                         <p className="text-sm font-bold text-slate-900">
@@ -515,6 +587,7 @@ export default function DentalLabDashboard() {
                           <th className="px-4 py-3">자재명</th>
                           <th className="px-4 py-3">거래처</th>
                           <th className="px-4 py-3 text-right">단가 원가</th>
+                          <th className="px-4 py-3 text-center">관리</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -549,6 +622,26 @@ export default function DentalLabDashboard() {
                                 ? log.costKRW
                                 : log.costUSD
                               ).toLocaleString()}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleCancelTransaction(log)}
+                                disabled={cancellingLogId === log.id}
+                                title={
+                                  lang === "ko"
+                                    ? "내역 취소 및 재고 복구"
+                                    : "Cancel & Restore Stock"
+                                }
+                                className="inline-flex items-center gap-1 rounded-md border border-rose-200 bg-rose-50/70 px-2.5 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
+                              >
+                                {cancellingLogId === log.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <RotateCcw className="h-3.5 w-3.5" />
+                                )}
+                                <span>{lang === "ko" ? "취소" : "Undo"}</span>
+                              </button>
                             </td>
                           </tr>
                         ))}
