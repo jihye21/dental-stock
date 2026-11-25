@@ -27,6 +27,7 @@ interface BarcodeScannerBoxProps {
   onSelectClinic: (clinicId: string) => void;
   onOpenClinicModal: (prefillName?: string) => void;
   onEditClinic: (clinic: Clinic) => void;
+  onEditMaterial: (material: MaterialItem) => void;
   inventory: Record<string, MaterialItem>;
   onProcessScan: (code: string, mode: TransactionMode, clinicId: string) => void;
 }
@@ -38,6 +39,7 @@ export default function BarcodeScannerBox({
   onSelectClinic,
   onOpenClinicModal,
   onEditClinic,
+  onEditMaterial,
   inventory,
   onProcessScan,
 }: BarcodeScannerBoxProps) {
@@ -49,6 +51,9 @@ export default function BarcodeScannerBox({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const selectedClinic = clinics.find((c) => c.id === selectedClinicId);
+
+  const normalizedBarcode = barcodeInput.trim().toUpperCase();
+  const matchedMaterial = inventory[normalizedBarcode];
 
   const handleSelectClinic = (clinicId: string) => {
     if (selectedClinicId === clinicId) {
@@ -93,11 +98,10 @@ export default function BarcodeScannerBox({
           <button
             type="button"
             onClick={() => setMode("OUT")}
-            className={`flex items-center justify-center gap-1.5 rounded-md py-2.5 text-sm font-semibold transition sm:px-4 sm:py-2 ${
-              mode === "OUT"
+            className={`flex items-center justify-center gap-1.5 rounded-md py-2.5 text-sm font-semibold transition sm:px-4 sm:py-2 ${mode === "OUT"
                 ? "bg-blue-600 text-white shadow-xs"
                 : "text-slate-600 hover:text-slate-900"
-            }`}
+              }`}
           >
             <ArrowUpRight className="h-4 w-4" />
             <span>{t.modeOut}</span>
@@ -105,18 +109,17 @@ export default function BarcodeScannerBox({
           <button
             type="button"
             onClick={() => setMode("IN")}
-            className={`flex items-center justify-center gap-1.5 rounded-md py-2.5 text-sm font-semibold transition sm:px-4 sm:py-2 ${
-              mode === "IN"
+            className={`flex items-center justify-center gap-1.5 rounded-md py-2.5 text-sm font-semibold transition sm:px-4 sm:py-2 ${mode === "IN"
                 ? "bg-emerald-600 text-white shadow-xs"
                 : "text-slate-600 hover:text-slate-900"
-            }`}
+              }`}
           >
             <ArrowDownRight className="h-4 w-4" />
             <span>{t.modeIn}</span>
           </button>
         </div>
 
-        {/* 빠른 샘플 코드 */}
+        {/* 빠른 샘플 코드 + 선택된 바코드 관리 */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs text-slate-500 sm:pb-0">
           <span className="shrink-0 font-medium">빠른코드:</span>
           {Object.keys(inventory)
@@ -125,12 +128,33 @@ export default function BarcodeScannerBox({
               <button
                 key={sku}
                 type="button"
-                onClick={() => setBarcodeInput(sku)}
-                className="shrink-0 rounded border border-slate-200 bg-slate-50 px-2 py-1 font-mono active:bg-slate-200 hover:bg-slate-100"
+                onClick={() => setBarcodeInput(normalizedBarcode === sku ? "" : sku)}
+                className={`shrink-0 rounded border px-2 py-1 font-mono transition ${normalizedBarcode === sku
+                    ? "border-blue-500 bg-blue-50 font-bold text-blue-700"
+                    : "border-slate-200 bg-slate-50 hover:bg-slate-100"
+                  }`}
               >
                 {sku}
               </button>
             ))}
+
+          {/* 바코드 [관리/삭제] 버튼 */}
+          {matchedMaterial && (
+            <button
+              type="button"
+              onClick={() =>
+                onEditMaterial({
+                  ...matchedMaterial,
+                  barcode: matchedMaterial.barcode || normalizedBarcode,
+                })
+              }
+              title={lang === "ko" ? "등록된 바코드 정보 및 삭제" : "View or Delete Barcode"}
+              className="ml-1 flex shrink-0 items-center gap-1 rounded border border-rose-200 bg-rose-50 px-2 py-1 font-semibold text-rose-600 transition hover:bg-rose-100"
+            >
+              <Pencil className="h-3 w-3" />
+              <span>{lang === "ko" ? "바코드 관리" : "Manage"}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -202,16 +226,14 @@ export default function BarcodeScannerBox({
                     key={clinic.id}
                     type="button"
                     onClick={() => handleSelectClinic(clinic.id)}
-                    className={`flex min-w-[132px] shrink-0 snap-start flex-col items-start rounded-lg border p-3 text-left transition active:scale-95 sm:min-w-0 ${
-                      isSelected
+                    className={`flex min-w-[132px] shrink-0 snap-start flex-col items-start rounded-lg border p-3 text-left transition active:scale-95 sm:min-w-0 ${isSelected
                         ? "border-blue-600 bg-blue-50/80 ring-1 ring-blue-600"
                         : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                    }`}
+                      }`}
                   >
                     <span
-                      className={`w-full truncate text-sm font-bold ${
-                        isSelected ? "text-blue-700" : "text-slate-800"
-                      }`}
+                      className={`w-full truncate text-sm font-bold ${isSelected ? "text-blue-700" : "text-slate-800"
+                        }`}
                     >
                       {clinic.name}
                     </span>
@@ -249,11 +271,10 @@ export default function BarcodeScannerBox({
           <button
             type="button"
             onClick={() => setIsCameraOpen(!isCameraOpen)}
-            className={`flex h-12 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold transition active:scale-95 ${
-              isCameraOpen
+            className={`flex h-12 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-semibold transition active:scale-95 ${isCameraOpen
                 ? "border-slate-800 bg-slate-900 text-white"
                 : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-            }`}
+              }`}
           >
             <Camera className="h-4 w-4 shrink-0" />
             <span>{isCameraOpen ? "카메라 끄기" : t.cameraScanBtn}</span>
@@ -261,11 +282,10 @@ export default function BarcodeScannerBox({
 
           <button
             type="submit"
-            className={`h-12 rounded-lg px-6 text-sm font-bold text-white shadow-xs transition active:scale-95 ${
-              mode === "OUT"
+            className={`h-12 rounded-lg px-6 text-sm font-bold text-white shadow-xs transition active:scale-95 ${mode === "OUT"
                 ? "bg-blue-600 hover:bg-blue-700"
                 : "bg-emerald-600 hover:bg-emerald-700"
-            }`}
+              }`}
           >
             {t.submitBtn}
           </button>

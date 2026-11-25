@@ -21,7 +21,7 @@ export default function CameraScanner({
     time: 0,
   });
 
-  // 스캔 성공 시 짧은 비프음 재생 (무선 바코드 스캐너와 동일한 현장감 제공)
+  // 스캔 sound
   const playBeep = () => {
     try {
       const ctx = new (window.AudioContext ||

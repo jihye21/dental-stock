@@ -53,10 +53,12 @@ export default function DentalLabDashboard() {
     isOpen: boolean;
     barcode: string;
     isUnregisteredPrompt: boolean;
+    editingMaterial: MaterialItem | null;
   }>({
     isOpen: false,
     barcode: "",
     isUnregisteredPrompt: false,
+    editingMaterial: null,
   });
 
   const [toast, setToast] = useState<{
@@ -75,14 +77,14 @@ export default function DentalLabDashboard() {
 
       const loadedClinics = data.frequentClinics || [];
       setClinics(loadedClinics);
-      if (loadedClinics.length > 0) {
-        setSelectedClinicId((prev) => prev || loadedClinics[0].id);
-      }
 
       const inventoryMap: Record<string, MaterialItem> = {};
       (data.materials || []).forEach((item: any) => {
         inventoryMap[item.barcode] = {
+          id: item.id,
+          barcode: item.barcode,
           name: lang === "en" && item.nameEn ? item.nameEn : item.name,
+          nameEn: item.nameEn || "",
           category: item.category,
           stock: item.stock,
           safeStock: item.safeStock,
@@ -154,6 +156,7 @@ export default function DentalLabDashboard() {
             isOpen: true,
             barcode: data.barcode || code,
             isUnregisteredPrompt: true,
+            editingMaterial: null,
           });
           return;
         }
@@ -304,6 +307,7 @@ export default function DentalLabDashboard() {
             isOpen: true,
             barcode: "",
             isUnregisteredPrompt: false,
+            editingMaterial: null,
           })
         }
       />
@@ -314,10 +318,23 @@ export default function DentalLabDashboard() {
         labId={TEMP_LAB_ID}
         initialBarcode={registerModal.barcode}
         isUnregisteredPrompt={registerModal.isUnregisteredPrompt}
+        editingMaterial={registerModal.editingMaterial}
         onClose={() =>
-          setRegisterModal((prev) => ({ ...prev, isOpen: false }))
+          setRegisterModal((prev) => ({ ...prev, isOpen: false, editingMaterial: null }))
         }
         onSuccess={handleMaterialRegistered}
+        onDeleteSuccess={(deletedId) => {
+        setInventory((prev) => {
+          const next = { ...prev };
+          const targetKey = Object.keys(next).find((k) => next[k].id === deletedId);
+          if (targetKey) delete next[targetKey];
+          return next;
+        });
+        setToast({
+          type: "success",
+          message: "등록된 바코드가 삭제되었습니다.",
+        });
+      }}
       />
 
       <ClinicRegisterModal
@@ -365,6 +382,14 @@ export default function DentalLabDashboard() {
               onEditClinic={(clinic) =>
                 setClinicModal({ isOpen: true, prefillName: "", editingClinic: clinic })
               }
+              onEditMaterial={(material) =>
+                setRegisterModal({
+                  isOpen: true,
+                  barcode: material.barcode || "",
+                  isUnregisteredPrompt: false,
+                  editingMaterial: material,
+                })
+              }
               inventory={inventory}
               onProcessScan={handleProcessScan}
             />
@@ -403,12 +428,14 @@ export default function DentalLabDashboard() {
               }}
             />
             
+            {/*
             <AnalyticsSection
               lang={lang}
               inventory={inventory}
               monthlyData={MONTHLY_CHART_DATA}
             />
-
+            */} 
+            
             {/* 실시간 입·출고 내역 */}
             <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs sm:p-6">
               <div className="mb-4 flex items-center justify-between">

@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
     // 3. 보유 자재 목록 및 최근 입출고 로그 10건 병렬 조회
     const [materials, recentLogs] = await Promise.all([
       prisma.material.findMany({
-        where: { labId },
+        where: { labId, isActive: true, },
         orderBy: { name: "asc" },
       }),
       prisma.inventoryTransaction.findMany({
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      if (!material) {
+      if (!material || !material.isActive) {
         throw new Error(`UNREGISTERED_BARCODE:${normalizedBarcode}`);
       }
 

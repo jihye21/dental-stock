@@ -8,7 +8,10 @@ export interface Clinic {
 }
 
 export interface MaterialItem {
+    id?: string;          
+    barcode?: string;     
     name: string;
+    nameEn?: string;      
     category: string;
     stock: number;
     safeStock: number;

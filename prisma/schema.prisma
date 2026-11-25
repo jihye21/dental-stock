@@ -66,6 +66,7 @@ model Material {
   barcode      String   // 바코드 / SKU (예: ZIR-A2-98)
   name         String   // 국문 자재명 (예: 지르코니아 블록 A2)
   nameEn       String?  // 영문 자재명 (해외 확장용)
+  isActive Boolean @default(true)
   category     String   // 보철, 임플란트, 세라믹, 디지털 등
   stock        Int      @default(0)  // 현재 재고 수량
   safeStock    Int      @default(10) // 안전재고 기준 수량

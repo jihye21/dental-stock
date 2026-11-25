@@ -41,7 +41,7 @@ export default function Header({
           >
             <PackagePlus className="h-4 w-4 shrink-0 text-emerald-400" />
             <span className="hidden sm:inline">
-              {lang === "ko" ? "초기 바코드 등록" : "Add Barcode"}
+              {lang === "ko" ? "바코드 등록" : "Add Barcode"}
             </span>
             <span className="sm:hidden">
               {lang === "ko" ? "자재등록" : "Add"}
