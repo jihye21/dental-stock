@@ -7,6 +7,7 @@ import {
   Building2,
   Search,
   Plus,
+  Pencil,
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react";
@@ -25,6 +26,7 @@ interface BarcodeScannerBoxProps {
   selectedClinicId: string;
   onSelectClinic: (clinicId: string) => void;
   onOpenClinicModal: (prefillName?: string) => void;
+  onEditClinic: (clinic: Clinic) => void;
   inventory: Record<string, MaterialItem>;
   onProcessScan: (code: string, mode: TransactionMode, clinicId: string) => void;
 }
@@ -35,6 +37,7 @@ export default function BarcodeScannerBox({
   selectedClinicId,
   onSelectClinic,
   onOpenClinicModal,
+  onEditClinic,
   inventory,
   onProcessScan,
 }: BarcodeScannerBoxProps) {
@@ -45,11 +48,13 @@ export default function BarcodeScannerBox({
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const selectedClinic = clinics.find((c) => c.id === selectedClinicId);
 
   const handleSelectClinic = (clinicId: string) => {
-    onSelectClinic(clinicId);
-    if (window.innerWidth >= 768) {
-      inputRef.current?.focus();
+    if (selectedClinicId === clinicId) {
+      onSelectClinic("");
+    } else {
+      onSelectClinic(clinicId);
     }
   };
 
@@ -149,6 +154,18 @@ export default function BarcodeScannerBox({
                   className="h-8 w-full rounded-md border border-slate-200 pr-2 pl-8 text-xs focus:border-blue-500 focus:outline-none"
                 />
               </div>
+              {/* 선택된 거래처가 있을 때만 보이는 [수정 / 삭제] 버튼 */}
+              {selectedClinic && (
+                <button
+                  type="button"
+                  onClick={() => onEditClinic(selectedClinic)}
+                  title={lang === "ko" ? "선택한 거래처 수정 및 삭제" : "Edit or Delete Clinic"}
+                  className="flex h-8 shrink-0 items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 transition active:scale-95 hover:bg-slate-50"
+                >
+                  <Pencil className="h-3.5 w-3.5 text-slate-500" />
+                  <span>{lang === "ko" ? "수정" : "Edit"}</span>
+                </button>
+              )}
 
               <button
                 type="button"

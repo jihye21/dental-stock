@@ -49,8 +49,6 @@ model Clinic {
   labId       String
   lab         Lab      @relation(fields: [labId], references: [id], onDelete: Cascade)
   name        String   // 치과명 (예: 서울탑치과)
-  contactName String?  // 담당 원장/실장명
-  phone       String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

@@ -22,9 +22,6 @@ export default function Header({
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-2">
         {/* 로고 & 타이틀 */}
         <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold text-white sm:h-10 sm:w-10 sm:text-base">
-            DL
-          </div>
           <div className="truncate">
             <h1 className="truncate text-base font-bold tracking-tight text-slate-900 sm:text-lg">
               {t.title}

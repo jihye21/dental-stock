@@ -27,24 +27,22 @@ async function main() {
 
   // 2. 기본 거래처(치과) 6곳 생성
   const clinicsData = [
-    { id: "clinic-seoul-top", name: "서울탑치과", contactName: "김민수 원장", phone: "02-555-1001" },
-    { id: "clinic-yonsei-miso", name: "연세미소치과", contactName: "이지은 실장", phone: "02-555-1002" },
-    { id: "clinic-gangnam-plant", name: "강남플란트치과", contactName: "박준호 원장", phone: "02-555-1003" },
-    { id: "clinic-barun-ortho", name: "바른이교정치과", contactName: "최수진 실장", phone: "02-555-1004" },
-    { id: "clinic-whiteline", name: "화이트라인치과", contactName: "정우성 원장", phone: "02-555-1005" },
-    { id: "clinic-thewell", name: "더웰치과병원", contactName: "한소희 실장", phone: "02-555-1006" },
+    { id: "clinic-seoul-top", name: "서울탑치과" },
+    { id: "clinic-yonsei-miso", name: "연세미소치과" },
+    { id: "clinic-gangnam-plant", name: "강남플란트치과" },
+    { id: "clinic-barun-ortho", name: "바른이교정치과" },
+    { id: "clinic-whiteline", name: "화이트라인치과" },
+    { id: "clinic-thewell", name: "더웰치과병원" },
   ];
 
   for (const clinic of clinicsData) {
     await prisma.clinic.upsert({
       where: { id: clinic.id },
-      update: { name: clinic.name, contactName: clinic.contactName, phone: clinic.phone },
+      update: { name: clinic.name },
       create: {
         id: clinic.id,
         labId: LAB_ID,
         name: clinic.name,
-        contactName: clinic.contactName,
-        phone: clinic.phone,
       },
     });
   }

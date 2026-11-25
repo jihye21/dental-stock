@@ -52,11 +52,13 @@ export async function GET(req: NextRequest) {
 
     const clinicNameMap = new Map(clinicDetails.map((c) => [c.id, c.name]));
 
-    const frequentClinics = topClinicGroups.map((group) => ({
-      id: group.clinicId!,
-      name: clinicNameMap.get(group.clinicId!) || "알 수 없는 거래처",
-      count: group._count.id,
-    }));
+    const frequentClinics = topClinicGroups
+      .filter((group) => group.clinicId && clinicNameMap.has(group.clinicId))
+      .map((group) => ({
+        id: group.clinicId!,
+        name: clinicNameMap.get(group.clinicId!)!,
+        count: group._count.id,
+      }));
 
     // 3. 보유 자재 목록 및 최근 입출고 로그 10건 병렬 조회
     const [materials, recentLogs] = await Promise.all([

@@ -1,72 +1,119 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Building2, Loader2 } from "lucide-react";
+import { X, Building2, Loader2, Trash2 } from "lucide-react";
 import { Clinic, Language } from "@/types/inventory";
 
-interface ClinicRegisterModalProps {
+interface ClinicModalProps {
   isOpen: boolean;
   lang: Language;
   labId: string;
   initialName?: string;
+  editingClinic?: Clinic | null;
   onClose: () => void;
-  onSuccess: (createdClinic: Clinic) => void;
+  onSuccess: (savedClinic: Clinic, isEdit: boolean) => void;
+  onDeleteSuccess?: (deletedClinicId: string) => void;
 }
 
-export default function ClinicRegisterModal({
+export default function ClinicModal({
   isOpen,
   lang,
   labId,
   initialName = "",
+  editingClinic = null,
   onClose,
   onSuccess,
-}: ClinicRegisterModalProps) {
+  onDeleteSuccess,
+}: ClinicModalProps) {
   const [name, setName] = useState(initialName);
-  const [contactName, setContactName] = useState("");
-  const [phone, setPhone] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const isEditMode = Boolean(editingClinic);
 
   useEffect(() => {
     if (isOpen) {
-      setName(initialName);
-      setContactName("");
-      setPhone("");
+      setName(editingClinic ? editingClinic.name : initialName);
       setErrorMsg(null);
     }
-  }, [isOpen, initialName]);
+  }, [isOpen, editingClinic, initialName]);
 
   if (!isOpen) return null;
 
+  // 등록 및 수정 처리
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSaving) return;
+    if (isSaving || isDeleting) return;
     setIsSaving(true);
     setErrorMsg(null);
 
     try {
-      const res = await fetch("/api/clinics", {
-        method: "POST",
+      const endpoint = isEditMode
+        ? `/api/clinics/${editingClinic!.id}`
+        : "/api/clinics";
+      const method = isEditMode ? "PATCH" : "POST";
+
+      const res = await fetch(endpoint, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           labId,
-          name,
-          contactName,
-          phone,
+          name: name.trim(),
         }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
       if (!res.ok) {
-        throw new Error(data.error || "거래처 등록에 실패했습니다.");
+        throw new Error(
+          data.error ||
+            (isEditMode
+              ? "거래처 수정에 실패했습니다."
+              : "거래처 등록에 실패했습니다.")
+        );
       }
 
-      onSuccess(data.clinic);
+      onSuccess(data.clinic, isEditMode);
       onClose();
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // 삭제 처리
+  const handleDelete = async () => {
+    if (!editingClinic || !onDeleteSuccess || isSaving || isDeleting) return;
+
+    const confirmMessage =
+      lang === "ko"
+        ? `'${editingClinic.name}' 거래처를 삭제하시겠습니까?\n(기존 입·출고 기록의 거래처명은 유지됩니다.)`
+        : `Delete '${editingClinic.name}'?\n(Existing scan logs will keep the clinic name.)`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setIsDeleting(true);
+    setErrorMsg(null);
+
+    try {
+      const res = await fetch(`/api/clinics/${editingClinic.id}`, {
+        method: "DELETE",
+      });
+
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
+      if (!res.ok) {
+        throw new Error(data.error || "거래처 삭제에 실패했습니다.");
+      }
+
+      onDeleteSuccess(editingClinic.id);
+      onClose();
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -81,10 +128,20 @@ export default function ClinicRegisterModal({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">
-                {lang === "ko" ? "신규 거래처(치과) 등록" : "Register New Dental Clinic"}
+                {isEditMode
+                  ? lang === "ko"
+                    ? "거래처 정보 수정"
+                    : "Edit Dental Clinic"
+                  : lang === "ko"
+                  ? "신규 거래처(치과) 등록"
+                  : "Register New Dental Clinic"}
               </h3>
               <p className="text-xs text-slate-500">
-                {lang === "ko"
+                {isEditMode
+                  ? lang === "ko"
+                    ? "거래처명이나 담당자 호칭을 변경할 수 있습니다."
+                    : "Update clinic name or contact title."
+                  : lang === "ko"
                   ? "등록 즉시 출고 거래처로 자동 선택됩니다."
                   : "Automatically selected for immediate dispatch."}
               </p>
@@ -117,56 +174,56 @@ export default function ClinicRegisterModal({
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="예: 여의도서울치과"
+              placeholder="예: OO 치과"
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium focus:border-blue-600 focus:outline-none"
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-700">
-                담당 원장 / 실장명
-              </label>
-              <input
-                type="text"
-                value={contactName}
-                onChange={(e) => setContactName(e.target.value)}
-                placeholder="예: 김원장 / 이실장"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-slate-700">
-                연락처
-              </label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="02-1234-5678"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-600 focus:outline-none"
-              />
-            </div>
-          </div>
-
           {/* 하단 버튼 */}
-          <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-            >
-              {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-              {lang === "ko" ? "거래처 등록 완료" : "Save Clinic"}
-            </button>
+          <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+            {/* 수정 모드일 때만 좌측에 삭제 버튼 표시 */}
+            {isEditMode ? (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isSaving || isDeleting}
+                className="flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+                {lang === "ko" ? "거래처 삭제" : "Delete"}
+              </button>
+            ) : (
+              <div />
+            )}
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSaving || isDeleting}
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving || isDeleting}
+                className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-5 py-2 text-sm font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+              >
+                {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isEditMode
+                  ? lang === "ko"
+                    ? "수정 완료"
+                    : "Save Changes"
+                  : lang === "ko"
+                  ? "거래처 등록 완료"
+                  : "Save Clinic"}
+              </button>
+            </div>
           </div>
         </form>
       </div>

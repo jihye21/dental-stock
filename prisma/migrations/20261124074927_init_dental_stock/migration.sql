@@ -33,8 +33,6 @@ CREATE TABLE "Clinic" (
     "id" TEXT NOT NULL,
     "labId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "contactName" TEXT,
-    "phone" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,

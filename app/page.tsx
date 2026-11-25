@@ -38,12 +38,15 @@ export default function DentalLabDashboard() {
   const [scanLogs, setScanLogs] = useState<ScanLog[]>([]);
 
   const [selectedClinicId, setSelectedClinicId] = useState<string>("");
+
   const [clinicModal, setClinicModal] = useState<{
     isOpen: boolean;
     prefillName: string;
+    editingClinic: Clinic | null;
   }>({
     isOpen: false,
     prefillName: "",
+    editingClinic: null,
   });
 
   const [registerModal, setRegisterModal] = useState<{
@@ -237,6 +240,45 @@ export default function DentalLabDashboard() {
     });
   };
 
+  const handleClinicSaved = (savedClinic: Clinic, isEdit: boolean) => {
+    if(isEdit) {
+      setClinics((prev) => 
+        prev.map((c)=> (c.id === savedClinic.id ? savedClinic : c))
+      );
+      setToast({
+      type: "success",
+      message: `✅ 거래처 정보가 수정되었습니다.`,
+    });
+    } else {
+      setClinics((prev) => [...prev, savedClinic]);
+      setSelectedClinicId(savedClinic.id);
+      setToast({ 
+        type: "success",
+        message: `✅ 새 거래처가 등록되었습니다.`,
+      });
+    }
+  };
+
+  const handleDeleteClinic = async (clinicId: string) => {
+    try {
+      // TODO: DB 삭제 API 호출
+      setClinics((prev) => prev.filter((c) => c.id !== clinicId));
+      
+      //현재 선택된 거래처가 삭제된 경우 선택 초기화
+      if(selectedClinicId === clinicId) {
+        setSelectedClinicId("");
+      }
+      setToast({
+        type: "success",
+        message: `✅ 거래처가 삭제되었습니다.`,
+      });
+    } catch (error) {
+      setToast({
+        type: "error",
+        message: `⚠️ ${error || "거래처 삭제 중 오류가 발생했습니다."}`,
+      });
+    }
+  }
   const handleClinicRegistered = (newClinic: Clinic) => {
     setClinics((prev) => [newClinic, ...prev]);
     setSelectedClinicId(newClinic.id);
@@ -318,19 +360,56 @@ export default function DentalLabDashboard() {
               selectedClinicId={selectedClinicId}
               onSelectClinic={setSelectedClinicId}
               onOpenClinicModal={(prefillName = "") =>
-                setClinicModal({ isOpen: true, prefillName })
+                setClinicModal({ isOpen: true, prefillName, editingClinic: null })
+              }
+              onEditClinic={(clinic) =>
+                setClinicModal({ isOpen: true, prefillName: "", editingClinic: clinic })
               }
               inventory={inventory}
               onProcessScan={handleProcessScan}
             />
-
-                        <AnalyticsSection
+            <ClinicRegisterModal
+              isOpen={clinicModal.isOpen}
+              lang={lang}
+              labId={TEMP_LAB_ID}
+              initialName={clinicModal.prefillName}
+              editingClinic={clinicModal.editingClinic}
+              onClose={() => setClinicModal((prev) => ({ ...prev, isOpen: false }))}
+              onSuccess={(savedClinic, isEdit) => {
+                if (isEdit) {
+                  setClinics((prev) =>
+                    prev.map((c) => (c.id === savedClinic.id ? savedClinic : c))
+                  );
+                  setToast({
+                    type: "success",
+                    message: "거래처 정보가 수정되었습니다.",
+                  });
+                } else {
+                  setClinics((prev) => [...prev, savedClinic]);
+                  setSelectedClinicId(savedClinic.id);
+                  setToast({
+                    type: "success",
+                    message: "새 거래처가 등록되었습니다.",
+                  });
+                }
+              }}
+              onDeleteSuccess={(deletedId) => {
+                setClinics((prev) => prev.filter((c) => c.id !== deletedId));
+                if (selectedClinicId === deletedId) setSelectedClinicId("");
+                setToast({
+                  type: "success",
+                  message: "거래처가 삭제되었습니다.",
+                });
+              }}
+            />
+            
+            <AnalyticsSection
               lang={lang}
               inventory={inventory}
               monthlyData={MONTHLY_CHART_DATA}
             />
 
-            {/* 실시간 입·출고 내역 (모바일: 카드 / 데스크톱: 테이블) */}
+            {/* 실시간 입·출고 내역 */}
             <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs sm:p-6">
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
