@@ -18,15 +18,6 @@ import {
 
 const TEMP_LAB_ID = "default-dental-lab";
 
-const MONTHLY_CHART_DATA = [
-  { month: "6월", costKRW: 420, costUSD: 3100, usage: 180 },
-  { month: "7월", costKRW: 480, costUSD: 3500, usage: 210 },
-  { month: "8월", costKRW: 450, costUSD: 3300, usage: 195 },
-  { month: "9월", costKRW: 530, costUSD: 3900, usage: 240 },
-  { month: "10월", costKRW: 510, costUSD: 3750, usage: 225 },
-  { month: "11월", costKRW: 590, costUSD: 4350, usage: 265 },
-];
-
 export default function DentalLabDashboard() {
   const [lang, setLang] = useState<Language>("ko");
   const t = I18N[lang];
@@ -485,13 +476,12 @@ export default function DentalLabDashboard() {
               }}
             />
 
-            {/*
             <AnalyticsSection
               lang={lang}
+              labId={TEMP_LAB_ID}
               inventory={inventory}
-              monthlyData={MONTHLY_CHART_DATA}
+              refreshTrigger={scanLogs.length}
             />
-            */}
 
             {/* 실시간 입·출고 내역 */}
             <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs sm:p-6">
