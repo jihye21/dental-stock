@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Globe, PackagePlus, FileSpreadsheet, Settings } from "lucide-react";
+import { Globe, PackagePlus, FileSpreadsheet, Settings, Download,
+  Loader2, } from "lucide-react";
 import { I18N, Language } from "@/types/inventory";
 
 interface HeaderProps {
@@ -9,6 +10,8 @@ interface HeaderProps {
   onToggleLang: () => void;
   onOpenRegisterModal: () => void;
   onOpenBulkModal: () => void;
+  onExportTransactions: () => void; //입 출고 내역 CSV 다운로드
+  isExportingTransactions?: boolean; //다운로드 중 로딩 상태
 }
 
 export default function Header({
@@ -16,6 +19,8 @@ export default function Header({
   onToggleLang,
   onOpenRegisterModal,
   onOpenBulkModal,
+  onExportTransactions,
+  isExportingTransactions = false,
 }: HeaderProps) {
   const t = I18N[lang];
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -47,7 +52,7 @@ export default function Header({
           </div>
         </div>
 
-        {/* 우측 액션 버튼 (모바일 터치 영역 최적화) */}
+        {/* 우측 액션 버튼 */}
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
           <button
             type="button"
@@ -63,7 +68,7 @@ export default function Header({
             </span>
           </button>
 
-          {/* 2. 설정(더보기) 드롭다운 메뉴 */}
+          {/* 설정 드롭다운 메뉴 */}
           <div className="relative" ref={menuRef}>
             <button
               type="button"
@@ -94,6 +99,28 @@ export default function Header({
                   <FileSpreadsheet className="h-4 w-4 shrink-0 text-emerald-600" />
                   <span>
                     {lang === "ko" ? "엑셀(CSV) 일괄 등록" : "Bulk Import (CSV)"}
+                  </span>
+                </button>
+                
+                {/* 전체 입·출고 내역 CSV 다운로드 */}
+                <button
+                  type="button"
+                  disabled={isExportingTransactions}
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onExportTransactions();
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-700 transition hover:bg-blue-50 hover:text-blue-800 disabled:opacity-50"
+                >
+                  {isExportingTransactions ? (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-600" />
+                  ) : (
+                    <Download className="h-4 w-4 shrink-0 text-blue-600" />
+                  )}
+                  <span>
+                    {lang === "ko"
+                      ? "입·출고 내역 CSV 다운로드"
+                      : "Export Scan Logs (CSV)"}
                   </span>
                 </button>
 

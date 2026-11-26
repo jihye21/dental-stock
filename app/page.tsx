@@ -454,6 +454,8 @@ export default function DentalLabDashboard() {
           })
         }
         onOpenBulkModal={() => setIsBulkModalOpen(true)}
+        onExportTransactions={() => handleExportCsv("transactions")}
+        isExportingTransactions={isExporting === "transactions"}
       />
 
       {/* CsvBulkModal 배치 */}
