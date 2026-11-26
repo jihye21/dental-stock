@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { CheckCircle2, AlertCircle, History, Loader2, RotateCcw, Download } from "lucide-react";
 import Header from "@/components/Header";
 import BarcodeScannerBox from "@/components/BarcodeScannerBox";
@@ -28,6 +28,13 @@ export default function DentalLabDashboard() {
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const isScanningLockRef = useRef(false);
+  const lastScanRef = useRef<{ code: string; mode: TransactionMode | ""; time: number }>({
+    code: "",
+    mode: "",
+    time: 0,
+  });
+
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [inventory, setInventory] = useState<Record<string, MaterialItem>>({});
   const [scanLogs, setScanLogs] = useState<ScanLog[]>([]);
@@ -193,7 +200,25 @@ export default function DentalLabDashboard() {
     mode: TransactionMode,
     clinicId: string
   ) => {
-    if (isSubmitting) return;
+    const normalizedCode = code.trim().toUpperCase();
+    if (!normalizedCode) return;
+
+    // 1. [동기 잠금] React 리렌더링 대기 없이 0ms 만에 동시 중복 호출 차단
+    if (isScanningLockRef.current || isSubmitting) return;
+
+    // 2. [1.2초 쿨다운] 카메라/스캐너가 동일 바코드를 1.2초 이내 연속 인식하는 것 차단
+    const now = Date.now();
+    if (
+      lastScanRef.current.code === normalizedCode &&
+      lastScanRef.current.mode === mode &&
+      now - lastScanRef.current.time < 1200
+    ) {
+      return;
+    }
+
+    // 잠금 즉시 활성화 및 마지막 스캔 기록 갱신
+    isScanningLockRef.current = true;
+    lastScanRef.current = { code: normalizedCode, mode, time: now };
     setIsSubmitting(true);
 
     try {
@@ -202,7 +227,7 @@ export default function DentalLabDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           labId: TEMP_LAB_ID,
-          barcode: code,
+          barcode: normalizedCode,
           type: mode,
           clinicId: mode === "OUT" ? clinicId : undefined,
           quantity: 1,
@@ -215,7 +240,7 @@ export default function DentalLabDashboard() {
         if (res.status === 404 && data.code === "UNREGISTERED_BARCODE") {
           setRegisterModal({
             isOpen: true,
-            barcode: data.barcode || code,
+            barcode: data.barcode || normalizedCode,
             isUnregisteredPrompt: true,
             editingMaterial: null,
           });
@@ -281,6 +306,7 @@ export default function DentalLabDashboard() {
         message: "⚠️ 네트워크 오류로 바코드 처리에 실패했습니다.",
       });
     } finally {
+      isScanningLockRef.current = false;
       setIsSubmitting(false);
     }
   };
