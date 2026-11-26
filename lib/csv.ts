@@ -11,6 +11,10 @@ export interface ParsedMaterialRow {
   unitCostUSD: number;
 }
 
+export interface ParsedClinicRow {
+  name: string;
+}
+
 /**
  * CSV 문자열을 파싱하여 자재 데이터 배열로 변환
  */
@@ -149,4 +153,54 @@ export function downloadSampleMaterialCsv() {
   ];
 
   downloadCsvFile("dental-stock-sample-template.csv", headers, sampleRows);
+}
+
+/**
+ * CSV 문자열을 파싱하여 거래처 데이터 배열로 변환
+ */
+export function parseClinicCsv(csvText: string): {
+  validRows: ParsedClinicRow[];
+  errors: string[];
+} {
+  const cleanText = csvText.replace(/^\uFEFF/, "").trim();
+  const lines = cleanText.split(/\r?\n/).filter((line) => line.trim() !== "");
+
+  if (lines.length < 2) {
+    return {
+      validRows: [],
+      errors: ["데이터가 없습니다. 헤더와 최소 1개 이상의 거래처가 필요합니다."],
+    };
+  }
+
+  const validRows: ParsedClinicRow[] = [];
+  const errors: string[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = splitCsvLine(lines[i]);
+    const rowNum = i + 1;
+    const name = (cols[0] || "").trim();
+
+    if (!name) {
+      errors.push(`${rowNum}행: 거래처명(치과명)이 비어 있습니다.`);
+      continue;
+    }
+
+    validRows.push({ name });
+  }
+
+  return { validRows, errors };
+}
+
+/**
+ * 거래처(치과) 일괄 등록용 샘플 CSV 양식 다운로드
+ */
+export function downloadSampleClinicCsv() {
+  const headers = ["거래처명_치과명(필수)"];
+  const sampleRows = [
+    ["서울탑치과의원"],
+    ["연세바른치과"],
+    ["강남미소치과병원"],
+  ];
+
+  downloadCsvFile("dental-stock-clinics-template.csv", headers, sampleRows);
 }
