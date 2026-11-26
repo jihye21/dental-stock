@@ -9,7 +9,7 @@ export async function DELETE(
     const { id } = await params;
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. 취소할 입·출고 기록 조회
+      // 취소할 입·출고 기록 조회
       const transaction = await tx.inventoryTransaction.findUnique({
         where: { id },
         include: { material: true },
@@ -19,13 +19,7 @@ export async function DELETE(
         throw new Error("NOT_FOUND");
       }
 
-      // 2. 재고 복구 방향 계산 (출고 취소면 +, 입고 취소면 -)
-      const stockRestoreDelta =
-        transaction.type === "OUT"
-          ? transaction.quantity
-          : -transaction.quantity;
-
-      // 3. 입고 취소 시 현재 재고가 마이너스가 되는지 검증
+      // 입고 취소 시 현재 재고가 마이너스가 되는지 검증
       if (
         transaction.type === "IN" &&
         transaction.material.stock < transaction.quantity
@@ -35,16 +29,26 @@ export async function DELETE(
         );
       }
 
-      // 4. 자재 재고 원복 및 입출고 기록 삭제
+      // 동시에 2개 요청이 들어와도 DB 행 락에 의해 단 1개만 count === 1을 반환
+      const deleted = await tx.inventoryTransaction.deleteMany({
+        where: { id },
+      });
+
+      if (deleted.count === 0) {
+        throw new Error("NOT_FOUND");
+      }
+
+      // 단일 요청만 자재 재고 원복 실행
+      const stockRestoreDelta =
+        transaction.type === "OUT"
+          ? transaction.quantity
+          : -transaction.quantity;
+
       const updatedMaterial = await tx.material.update({
         where: { id: transaction.materialId },
         data: {
           stock: { increment: stockRestoreDelta },
         },
-      });
-
-      await tx.inventoryTransaction.delete({
-        where: { id },
       });
 
       return { updatedMaterial, deletedTransaction: transaction };
