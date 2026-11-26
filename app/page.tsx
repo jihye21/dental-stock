@@ -9,6 +9,7 @@ import MaterialRegisterModal from "@/components/MaterialRegisterModal";
 import ClinicRegisterModal from "@/components/ClinicRegisterModal";
 import CsvBulkModal from "@/components/CsvBulkModal";
 import { downloadCsvFile } from "@/lib/csv";
+import StockAuditModal from "@/components/StockAuditModal";
 
 import {
   Clinic,
@@ -34,6 +35,7 @@ export default function DentalLabDashboard() {
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState<"materials" | "transactions" | null>(null);
   const [selectedClinicId, setSelectedClinicId] = useState<string>("");
+  const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
 
   const [clinicModal, setClinicModal] = useState<{
     isOpen: boolean;
@@ -90,24 +92,29 @@ export default function DentalLabDashboard() {
       });
       setInventory(inventoryMap);
 
-      const formattedLogs: ScanLog[] = (data.recentLogs || []).map((log: any) => ({
-        id: log.id,
-        time: new Date(log.createdAt).toLocaleTimeString("ko-KR", {
-          hour12: false,
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        }),
-        type: log.type,
-        barcode: log.material.barcode,
-        itemName:
-          lang === "en" && log.material.nameEn
-            ? log.material.nameEn
-            : log.material.name,
-        clinicName: log.clinic?.name || (lang === "ko" ? "자재 매입처" : "Supplier"),
-        costKRW: log.unitCostKRW,
-        costUSD: log.unitCostUSD,
-      }));
+      const formattedLogs: ScanLog[] = (data.recentLogs || []).map((log: any) => {
+        const isAudit = typeof log.memo === "string" && log.memo.startsWith("[실사조정]");
+        return {
+          id: log.id,
+          time: new Date(log.createdAt).toLocaleTimeString("ko-KR", {
+            hour12: false,
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          }),
+          type: log.type,
+          barcode: log.material.barcode,
+          itemName:
+            lang === "en" && log.material.nameEn
+              ? log.material.nameEn
+              : log.material.name,
+          clinicName: isAudit
+            ? log.memo
+            : log.clinic?.name || (lang === "ko" ? "자재 매입처" : "Supplier"),
+          costKRW: log.unitCostKRW,
+          costUSD: log.unitCostUSD,
+        };
+      });
       setScanLogs(formattedLogs);
     } catch (err: any) {
       setToast({
@@ -454,8 +461,21 @@ export default function DentalLabDashboard() {
           })
         }
         onOpenBulkModal={() => setIsBulkModalOpen(true)}
+        onOpenAuditModal={() => setIsAuditModalOpen(true)}
         onExportTransactions={() => handleExportCsv("transactions")}
         isExportingTransactions={isExporting === "transactions"}
+      />
+
+      <StockAuditModal
+        isOpen={isAuditModalOpen}
+        lang={lang}
+        labId={TEMP_LAB_ID}
+        inventory={inventory}
+        onClose={() => setIsAuditModalOpen(false)}
+        onSuccess={(msg) => {
+          setToast({ type: "success", message: msg });
+          fetchDashboardData(); // 재고 수량 및 입출고 로그 즉시 동기화
+        }}
       />
 
       {/* CsvBulkModal 배치 */}
@@ -625,11 +645,10 @@ export default function DentalLabDashboard() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span
-                              className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                                log.type === "OUT"
-                                  ? "bg-blue-100 text-blue-700"
-                                  : "bg-emerald-100 text-emerald-700"
-                              }`}
+                              className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${log.type === "OUT"
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-emerald-100 text-emerald-700"
+                                }`}
                             >
                               {log.type === "OUT" ? "출고" : "입고"}
                             </span>
@@ -697,11 +716,10 @@ export default function DentalLabDashboard() {
                             </td>
                             <td className="px-4 py-3">
                               <span
-                                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                  log.type === "OUT"
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "bg-emerald-100 text-emerald-700"
-                                }`}
+                                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${log.type === "OUT"
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-emerald-100 text-emerald-700"
+                                  }`}
                               >
                                 {log.type === "OUT" ? "출고" : "입고"}
                               </span>

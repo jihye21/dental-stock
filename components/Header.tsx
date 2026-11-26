@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Globe, PackagePlus, FileSpreadsheet, Settings, Download,
-  Loader2, } from "lucide-react";
+  Loader2, ClipboardCheck, } from "lucide-react";
 import { I18N, Language } from "@/types/inventory";
 
 interface HeaderProps {
@@ -10,6 +10,7 @@ interface HeaderProps {
   onToggleLang: () => void;
   onOpenRegisterModal: () => void;
   onOpenBulkModal: () => void;
+  onOpenAuditModal: () => void;
   onExportTransactions: () => void; //입 출고 내역 CSV 다운로드
   isExportingTransactions?: boolean; //다운로드 중 로딩 상태
 }
@@ -19,6 +20,7 @@ export default function Header({
   onToggleLang,
   onOpenRegisterModal,
   onOpenBulkModal,
+  onOpenAuditModal,
   onExportTransactions,
   isExportingTransactions = false,
 }: HeaderProps) {
@@ -88,6 +90,22 @@ export default function Header({
                 <div className="px-2.5 py-1.5 text-[11px] font-semibold text-slate-400">
                   {lang === "ko" ? "데이터 관리" : "Data Management"}
                 </div>
+
+                 {/* 재고 실사 */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    onOpenAuditModal();
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-700 transition hover:bg-amber-50 hover:text-amber-800"
+                >
+                  <ClipboardCheck className="h-4 w-4 shrink-0 text-amber-600" />
+                  <span>
+                    {lang === "ko" ? "재고 실사 및 조정" : "Stock Audit"}
+                  </span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {
