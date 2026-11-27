@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
             AND "barcode" = ${normalizedBarcode}
             AND "isActive" = true
             AND "stock" >= ${quantity}
-          REURNING *
+          RETURNING *
         `;
       } else {
         updatedRows = await tx.$queryRaw<Material[]>`
