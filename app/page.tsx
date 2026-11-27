@@ -180,6 +180,15 @@ export default function DentalLabDashboard() {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchDashboardData();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [fetchDashboardData]);
+
   const handleProcessScan = async (
     code: string,
     mode: TransactionMode,
