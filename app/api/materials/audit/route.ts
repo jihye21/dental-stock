@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     // 실제 차이가 발생한 품목만 필터링
     const adjustments: {
-      material: (typeof dbMaterials);
+      material: (typeof dbMaterials)[number];
       actualStock: number;
       diff: number;
     }[] = [];
@@ -90,8 +90,7 @@ export async function POST(req: NextRequest) {
         await tx.inventoryTransaction.create({
           data: {
             labId,
-            type: isIncrease ? TransactionType.IN : TransactionType.OUT,
-            quantity: absDiff,
+            type: isIncrease ? "IN" : "OUT",
             unitCostKRW: adj.material.unitCostKRW,
             unitCostUSD: adj.material.unitCostUSD,
             materialId: adj.material.id,

@@ -65,7 +65,7 @@ export default function StockAuditModal({
         if (m.id) initial[m.id] = String(m.stock);
       });
       setActualStocks(initial);
-      setReason(lang === "ko" ? AUDIT_REASONS_KO : AUDIT_REASONS_EN);
+      setReason(lang === "ko" ? AUDIT_REASONS_KO[0] : AUDIT_REASONS_EN[0]);
       setSearchQuery("");
       setShowDiffOnly(false);
       setErrorMsg(null);
