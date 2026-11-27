@@ -157,22 +157,7 @@ export default function DentalLabDashboard() {
         throw new Error(data.error || "취소 처리에 실패했습니다.");
       }
 
-      // 1. 로그 목록에서 즉시 제거
-      setScanLogs((prev) => prev.filter((item) => item.id !== log.id));
-
-      // 2. 현재 재고(inventory) 수량 즉시 동기화
-      if (data.material) {
-        setInventory((prev) => {
-          if (!prev[log.barcode]) return prev;
-          return {
-            ...prev,
-            [log.barcode]: {
-              ...prev[log.barcode],
-              stock: data.material.stock,
-            },
-          };
-        });
-      }
+      await fetchDashboardData();
 
       setToast({
         type: "success",

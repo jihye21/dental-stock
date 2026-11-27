@@ -173,11 +173,11 @@ export async function POST(req: NextRequest) {
         });
 
         if (!existing || !existing.isActive) {
-          throw new Error(`UNREGISTERED_BARCODE: ${normalizedBarcode}`);
+          throw new Error(`UNREGISTERED_BARCODE:${normalizedBarcode}`);
         }
 
         throw new Error(
-          `INSUFFICIENT_STOCK: ${existing.name}: ${existing.stock}`
+          `INSUFFICIENT_STOCK: ${existing.name}:${existing.stock}`
         );
       }
 
