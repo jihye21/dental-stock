@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
 
       // 조건부 잠금, 재고 증감, 갱신 데이터 반환 
       if (type === "OUT") {
-        updatedRows = await tx.$queryRow<Material[]>`
+        updatedRows = await tx.$queryRaw<Material[]>`
           UPDATE "Material"
           SET
             "stock" = "stock" - ${quantity},
