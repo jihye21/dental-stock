@@ -1,6 +1,5 @@
 // app/api/materials/audit/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { TransactionType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 interface AuditItemInput {
@@ -80,17 +79,40 @@ export async function POST(req: NextRequest) {
         const isIncrease = adj.diff > 0;
         const absDiff = Math.abs(adj.diff);
 
-        // 1. 자재 현재 재고 실사 수량으로 동기화
-        await tx.material.update({
-          where: { id: adj.material.id },
-          data: { stock: adj.actualStock },
-        });
+        // 자재 현재 재고를 diff만큼 원자적으로 증감
+        if (isIncrease) {
+          await tx.material.update({
+            where: { id: adj.material.id },
+            data: { stock: { increment: absDiff } },
+          });
+        } else {
+          // 감소 조정 시 동시 출고로 인한 음수 재고 방지
+          const updateResult = await tx.material.updateMany({
+            where: {
+              id: adj.material.id,
+              isActive: true,
+              stock: { gte: absDiff },
+            },
+            data: { stock: { decrement: absDiff } },
+          });
 
-        // 2. 조정 내역을 InventoryTransaction에 기록
+          if (updateResult.count === 0) {
+            const latest = await tx.material.findUnique({
+              where: { id: adj.material.id },
+              select: { stock: true },
+            });
+            throw new Error(
+              `INSUFFICIENT_STOCK:${adj.material.name}:${latest?.stock ?? 0}`
+            );
+          }
+        }
+
+        // 조정 내역을 InventoryTransaction에 기록
         await tx.inventoryTransaction.create({
           data: {
             labId,
             type: isIncrease ? "IN" : "OUT",
+            quantity: absDiff,
             unitCostKRW: adj.material.unitCostKRW,
             unitCostUSD: adj.material.unitCostUSD,
             materialId: adj.material.id,
@@ -108,7 +130,19 @@ export async function POST(req: NextRequest) {
       },
       { status: 200 }
     );
-  } catch (error) {
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : "";
+
+    if (errMsg.startsWith("INSUFFICIENT_STOCK:")) {
+      const [, name, currentStock] = errMsg.split(":");
+      return NextResponse.json(
+        {
+          error: `실사 조정 중 다른 출고가 발생해 재고가 부족합니다. (${name} 현재 재고: ${currentStock}개)`,
+        },
+        { status: 409 }
+      );
+    }
+
     console.error("[POST /api/materials/audit] Error:", error);
     return NextResponse.json(
       { error: "실사 재고 조정 처리 중 서버 오류가 발생했습니다." },
