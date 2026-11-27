@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { TransactionType } from "@prisma/client";
+import { Material, TransactionType } from "@prisma/client";
 
 // [GET] 최근 7일 출고 빈도 TOP 8 거래처 + 전체 자재 재고 + 최근 스캔 로그 조회
 export async function GET(req: NextRequest) {
@@ -119,47 +119,77 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      return NextResponse.json(
+        { error: "수량은 1 이상의 정수여야 합니다." },
+        { status: 400 }
+      );
+    }
+
     const normalizedBarcode = barcode.trim().toUpperCase();
 
     // 2. Prisma 트랜잭션 실행
     const result = await prisma.$transaction(async (tx) => {
-      // 2-1. 바코드로 자재 조회
-      const material = await tx.material.findUnique({
-        where: {
-          labId_barcode: {
-            labId,
-            barcode: normalizedBarcode,
+      let updatedRows: Material[];
+
+      // 조건부 잠금, 재고 증감, 갱신 데이터 반환 
+      if (type === "OUT") {
+        updatedRows = await tx.$queryRow<Material[]>`
+          UPDATE "Material"
+          SET
+            "stock" = "stock" - ${quantity},
+            "updatedAt" = NOW()
+          WHERE "labId" = ${labId}
+            AND "barcode" = ${normalizedBarcode}
+            AND "isActive" = true
+            AND "stock" >= ${quantity}
+          REURNING *
+        `;
+      } else {
+        updatedRows = await tx.$queryRaw<Material[]>`
+          UPDATE "Material"
+          SET
+            "stock" = "stock" + ${quantity},
+            "updatedAt" = NOW()
+          WHERE "labId" = ${labId}
+            AND "barcode" = ${normalizedBarcode}
+            AND "isActive" = true
+          RETURNING *
+        `;
+      }
+
+      let updatedMaterial = updatedRows[0];
+
+      // 업데이트된 행이 없는 경우 원인 판별
+      if(!updatedMaterial) {
+        const existing = await tx.material.findUnique({
+          where: {
+            labId_barcode: {
+              labId,
+              barcode: normalizedBarcode,
+            },
           },
-        },
-      });
+          select: { name: true, stock: true, isActive: true },
+        });
 
-      if (!material || !material.isActive) {
-        throw new Error(`UNREGISTERED_BARCODE:${normalizedBarcode}`);
+        if (!existing || !existing.isActive) {
+          throw new Error(`UNREGISTERED_BARCODE: ${normalizedBarcode}`);
+        }
+
+        throw new Error(
+          `INSUFFICIENT_STOCK: ${existing.name}: ${existing.stock}`
+        );
       }
 
-      // 2-2. 출고 시 재고 부족 검증
-      if (type === "OUT" && material.stock < quantity) {
-        throw new Error(`INSUFFICIENT_STOCK:${material.name}:${material.stock}`);
-      }
-
-      // 2-3. 재고 수량 업데이트
-      const stockDelta = type === "OUT" ? -quantity : quantity;
-      const updatedMaterial = await tx.material.update({
-        where: { id: material.id },
-        data: {
-          stock: { increment: stockDelta },
-        },
-      });
-
-      // 2-4. 입·출고 이력 및 당시 원가 스냅샷 기록
+      // 2-3. 입·출고 이력 및 당시 원가 스냅샷 기록
       const transaction = await tx.inventoryTransaction.create({
         data: {
           labId,
           type: type as TransactionType,
           quantity,
-          unitCostKRW: material.unitCostKRW,
-          unitCostUSD: material.unitCostUSD,
-          materialId: material.id,
+          unitCostKRW: updatedMaterial.unitCostKRW,
+          unitCostUSD: updatedMaterial.unitCostUSD,
+          materialId: updatedMaterial.id,
           clinicId: type === "OUT" ? clinicId || null : null,
           memo: memo || null,
         },
@@ -187,7 +217,8 @@ export async function POST(req: NextRequest) {
     if (errMsg.startsWith("UNREGISTERED_BARCODE:")) {
       const barcode = errMsg.split(":")[1];
       return NextResponse.json(
-        {   code: "UNREGISTERED_BARCODE",
+        {   
+            code: "UNREGISTERED_BARCODE",
             barcode,
             error: `미등록 바코드입니다: ${barcode}`,
         },
